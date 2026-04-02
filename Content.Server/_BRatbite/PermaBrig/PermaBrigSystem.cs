@@ -111,8 +111,6 @@ public sealed class PermaBrigSystem : GameRuleSystem<PermaBrigComponent>
 
         SpawnPrisonerPlayer(ev.Player);
 
-        ev.Handled = true;
-
         _sawmill.Info($"Player sent to perma: {ev.Player}");
     }
 
