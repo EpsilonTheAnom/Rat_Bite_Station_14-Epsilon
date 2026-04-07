@@ -101,3 +101,35 @@
       amount: 1
   products:
     Honk: 4
+
+- type: reaction
+  id: Romerol
+  impact: High # uh...
+  maxTemp: 100
+  reactants:
+    Opporozidone:
+      amount: 10
+    Formaldehyde:
+      amount: 10
+    Fentanyl:
+      amount: 30
+    Omnizine:
+      amount: 1
+    Ebifin:
+      amount: 1
+    ProcenylLazide:
+      amount: 1
+    Syriniver:
+      amount: 1
+    Blood:
+      amount: 6
+    Vomit:
+      amount: 39
+    Plasma:
+      amount: 1
+  products: # pretty uh, crazy
+    Romerol: 1
+
+
+
+
