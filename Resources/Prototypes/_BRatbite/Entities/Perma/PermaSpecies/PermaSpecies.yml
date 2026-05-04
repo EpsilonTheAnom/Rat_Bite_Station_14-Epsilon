@@ -96,3 +96,14 @@
         - MobLayer
   - type: Inventory
     templateId: PermaAscended
+
+- type: entity
+  save: false
+  name: Ascended Perma Dummy
+  parent: MobHumanDummy
+  id: MobPermaAscendedDummy
+  categories: [ HideSpawnMenu ]
+  description: A dummy perma meant to be used in character setup.
+  components:
+  - type: HumanoidAppearance
+    species: PermaAscended
