@@ -518,18 +518,7 @@ namespace Content.Shared.Preferences
                 };
             }
 
-            var count = 0;
-            foreach (var trait in list)
-            {
-                // If trait not found or another category don't count its points.
-                if (!protoManager.TryIndex<TraitPrototype>(trait, out var otherProto) ||
-                    otherProto.Category != traitCategory)
-                {
-                    continue;
-                }
-
-                count += otherProto.Cost;
-            }
+            var count = GetTraitPointTotalForCategory(list, traitCategory.ID, protoManager);
 
             if (count > traitCategory.MaxTraitPoints && traitProto.Cost != 0)
             {
@@ -780,8 +769,13 @@ namespace Content.Shared.Preferences
             // Track points count for each group.
             var groups = new Dictionary<string, int>();
             var result = new List<ProtoId<TraitPrototype>>();
+            var traitList = traits.ToList();
 
-            foreach (var trait in traits)
+            var disabilityCredit = GetTraitPointTotalForCategory(traitList, "Disabilities", protoManager);
+            if (disabilityCredit != 0)
+                groups["Physical"] = disabilityCredit;
+
+            foreach (var trait in traitList)
             {
                 if (!protoManager.TryIndex(trait, out var traitProto))
                     continue;
@@ -797,6 +791,12 @@ namespace Content.Shared.Preferences
                 if (!protoManager.TryIndex(traitProto.Category, out var category))
                     continue;
 
+                if (category.MaxTraitPoints < 0)
+                {
+                    result.Add(trait);
+                    continue;
+                }
+
                 var existing = groups.GetOrNew(category.ID);
                 existing += traitProto.Cost;
 
@@ -809,6 +809,26 @@ namespace Content.Shared.Preferences
             }
 
             return result;
+        }
+
+        private static int GetTraitPointTotalForCategory(
+            IEnumerable<ProtoId<TraitPrototype>> traitIds,
+            ProtoId<TraitCategoryPrototype> categoryId,
+            IPrototypeManager protoManager)
+        {
+            var count = 0;
+
+            foreach (var traitId in traitIds)
+            {
+                if (!protoManager.TryIndex<TraitPrototype>(traitId, out var trait))
+                    continue;
+
+                if (trait.Category == categoryId ||
+                    categoryId == "Physical" && trait.Category == "Disabilities")
+                    count += trait.Cost;
+            }
+
+            return count;
         }
 
         public ICharacterProfile Validated(ICommonSession session, IDependencyCollection collection)

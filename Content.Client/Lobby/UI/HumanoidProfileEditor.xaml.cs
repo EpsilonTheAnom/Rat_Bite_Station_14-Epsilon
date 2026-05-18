@@ -868,17 +868,11 @@ namespace Content.Client.Lobby.UI
                     {
                         if (preference)
                         {
-                            var currentPoints = 0;
                             if (category != null && category.MaxTraitPoints >= 0)
                             {
-                                foreach (var existingTraitId in Profile?.TraitPreferences ?? new HashSet<ProtoId<TraitPrototype>>())
-                                {
-                                    if (!_prototypeManager.TryIndex<TraitPrototype>(existingTraitId, out var existingProto))
-                                        continue;
-
-                                    if (existingProto.Category == categoryId)
-                                        currentPoints += existingProto.Cost;
-                                }
+                                var currentPoints = GetTraitPointTotalForCategory(
+                                    Profile?.TraitPreferences ?? new HashSet<ProtoId<TraitPrototype>>(),
+                                    category.ID);
 
                                 if (currentPoints + trait.Cost > category.MaxTraitPoints)
                                 {
@@ -904,38 +898,36 @@ namespace Content.Client.Lobby.UI
                         SetDirty();
                         UpdateTraitIncompatibilityVisibility(allSelectors);
 
-                        if (category is { MaxTraitPoints: >= 0 })
+                        foreach (var (refreshCategoryId, refreshButton) in categoryButtons)
                         {
-                            var currentPoints = 0;
-                            foreach (var traitId in Profile?.TraitPreferences ?? new HashSet<ProtoId<TraitPrototype>>())
-                            {
-                                if (!_prototypeManager.TryIndex<TraitPrototype>(traitId, out var proto))
-                                    continue;
+                            if (!_prototypeManager.TryIndex<TraitCategoryPrototype>(refreshCategoryId, out var refreshCategory) ||
+                                refreshCategory.MaxTraitPoints is not { } maxPoints ||
+                                maxPoints < 0)
+                                continue;
 
-                                if (proto.Category == category.ID)
-                                    currentPoints += proto.Cost;
-                            }
+                            var currentPoints = GetTraitPointTotalForCategory(
+                                Profile?.TraitPreferences ?? new HashSet<ProtoId<TraitPrototype>>(),
+                                refreshCategory.ID);
 
-                            if (categoryButton.TraitsContainer.ChildCount >= 2)
+                            if (refreshButton.TraitsContainer.ChildCount >= 2)
                             {
-                                var maxPoints = category.MaxTraitPoints.Value;
                                 float pointsLeft = Math.Max(0, maxPoints - currentPoints);
 
-                                if (categoryButton.TraitsContainer.GetChild(0) is ProgressBar progressBar)
+                                if (refreshButton.TraitsContainer.GetChild(0) is ProgressBar progressBar)
                                 {
                                     progressBar.Value = pointsLeft;
                                     SetTraitProgressBarColor(progressBar, pointsLeft, maxPoints);
                                 }
 
-                                if (categoryButton.TraitsContainer.GetChild(1) is Label pointsLabel)
+                                if (refreshButton.TraitsContainer.GetChild(1) is Label pointsLabel)
                                 {
                                     pointsLabel.Text = Loc.GetString("humanoid-profile-editor-trait-count-hint",
                                         ("current", pointsLeft),
-                                        ("max", category.MaxTraitPoints));
+                                        ("max", refreshCategory.MaxTraitPoints));
                                 }
                             }
 
-                            RefreshTraitColors(categoryButton, category, currentPoints);
+                            RefreshTraitColors(refreshButton, refreshCategory, currentPoints);
                         }
                     };
                     selectors.Add(selector);
@@ -944,6 +936,10 @@ namespace Content.Client.Lobby.UI
                 // Selection counter
                 if (category is { MaxTraitPoints: >= 0 })
                 {
+                    selectionCount = GetTraitPointTotalForCategory(
+                        Profile?.TraitPreferences ?? new HashSet<ProtoId<TraitPrototype>>(),
+                        category.ID);
+
                     var maxPoints = category.MaxTraitPoints.Value;
                     var pointsLeft = Math.Max(0, maxPoints - selectionCount);
                     var progressBar = new ProgressBar
@@ -1010,6 +1006,23 @@ namespace Content.Client.Lobby.UI
                 selector.TraitButton.ModulateSelfOverride = null;
                 selector.SetUnavailable(!selector.Preference && selector.Cost + currentPoints > category.MaxTraitPoints);
             }
+        }
+
+        private int GetTraitPointTotalForCategory(IEnumerable<ProtoId<TraitPrototype>> traitIds, ProtoId<TraitCategoryPrototype> categoryId)
+        {
+            var count = 0;
+
+            foreach (var traitId in traitIds)
+            {
+                if (!_prototypeManager.TryIndex<TraitPrototype>(traitId, out var trait))
+                    continue;
+
+                if (trait.Category == categoryId ||
+                    categoryId == "Physical" && trait.Category == "Disabilities")
+                    count += trait.Cost;
+            }
+
+            return count;
         }
 
         private void UpdateTraitIncompatibilityVisibility(Dictionary<ProtoId<TraitPrototype>, TraitPreferenceSelector> allSelectors)
