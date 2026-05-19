@@ -19,6 +19,16 @@
   name: trait-category-quirks
 
 - type: traitCategory
+  id: Mental
+  name: trait-category-mental
+  maxTraitPoints: 6
+
+- type: traitCategory
+  id: Auditory
+  name: trait-category-auditory
+  maxTraitPoints: 6
+
+- type: traitCategory
   id: Physical
   name: trait-category-physical
   maxTraitPoints: 6

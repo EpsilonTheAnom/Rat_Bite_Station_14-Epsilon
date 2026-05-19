@@ -33,6 +33,18 @@ public sealed partial class ThievingComponent : Component
     public bool Stealthy;
 
     /// <summary>
+    /// Reduces strip warning popups to small non-caution text without hiding the do-after.
+    /// </summary>
+    [DataField, AutoNetworkedField]
+    public bool Subtle;
+
+    /// <summary>
+    /// Toggles <see cref="Subtle"/> instead of <see cref="Stealthy"/> when the alert is clicked.
+    /// </summary>
+    [DataField]
+    public bool ToggleSubtle;
+
+    /// <summary>
     /// Multiplies the final strip time.
     /// </summary>
     [DataField, AutoNetworkedField]

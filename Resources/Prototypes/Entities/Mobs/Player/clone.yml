@@ -18,6 +18,11 @@
   # traits
   # - LegsParalyzed (you get healed)
   - BlackAndWhiteOverlay
+  - ClimbDelayModifier
+  - CPRTraining
+  - FootstepVolumeModifier
+  - HarpySinger
+  - Instrument
   - LightweightDrunk
   - Muted
   - Narcolepsy
@@ -26,6 +31,10 @@
   - Paracusia
   - PermanentBlindness
   - Snoring
+  - SlippableModifier
+  - SpeedModifiedByContactModifier
+  - SurgerySpeedModifier
+  - SwappableInstrument
   - Unrevivable
   # job specific
   - BibleUser

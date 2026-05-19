@@ -113,6 +113,7 @@
   components:
   - type: Thieving
     stealthy: false
+    toggleSubtle: true
     timeMultiplier: 0.5
     identifyHidden: true
 
