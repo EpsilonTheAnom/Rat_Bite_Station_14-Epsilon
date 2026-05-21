@@ -2,15 +2,17 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+using System.Numerics;
 using Content.Goobstation.Maths.FixedPoint;
-using Content.Goobstation.Common.MartialArts;
 using Content.Shared.Alert;
 using Content.Shared.Damage;
-using Content.Shared.Inventory;
 using Content.Shared.Interaction.Events;
+using Content.Shared.Mobs;
 using Content.Shared.Mobs.Components;
 using Content.Shared.Weapons.Melee;
 using Content.Shared.Weapons.Melee.Events;
+using Robust.Shared.Audio.Systems;
+using Robust.Shared.Network;
 using Robust.Shared.Timing;
 
 namespace Content.Shared._BRatbite.Traits;
@@ -18,8 +20,15 @@ namespace Content.Shared._BRatbite.Traits;
 public sealed class PctTrainingSystem : EntitySystem
 {
     [Dependency] private readonly AlertsSystem _alerts = default!;
-    [Dependency] private readonly InventorySystem _inventory = default!;
+    [Dependency] private readonly SharedAudioSystem _audio = default!;
+    [Dependency] private readonly INetManager _net = default!;
+    [Dependency] private readonly SharedTransformSystem _transform = default!;
     [Dependency] private readonly IGameTiming _timing = default!;
+    [Dependency] private readonly UnarmedCombatSkillSystem _unarmedCombat = default!;
+
+    private readonly Dictionary<EntityUid, RecentPctHit> _recentHits = new();
+    private readonly List<PendingPctKnockout> _pendingKnockouts = new();
+    private readonly List<EntityUid> _recentHitsToRemove = new();
 
     public override void Initialize()
     {
@@ -31,9 +40,54 @@ public sealed class PctTrainingSystem : EntitySystem
         SubscribeLocalEvent<PctTrainingComponent, MeleeHitEvent>(OnMeleeHit);
     }
 
+    public override void Update(float frameTime)
+    {
+        base.Update(frameTime);
+
+        var cutoff = _timing.CurTime - TimeSpan.FromSeconds(2);
+        _recentHitsToRemove.Clear();
+        foreach (var (uid, recent) in _recentHits)
+        {
+            if (recent.Time < cutoff || Deleted(uid))
+                _recentHitsToRemove.Add(uid);
+        }
+
+        foreach (var uid in _recentHitsToRemove)
+        {
+            _recentHits.Remove(uid);
+        }
+
+        if (!_net.IsServer)
+            return;
+
+        for (var i = _pendingKnockouts.Count - 1; i >= 0; i--)
+        {
+            var pending = _pendingKnockouts[i];
+            _pendingKnockouts.RemoveAt(i);
+
+            if (Deleted(pending.User) || Deleted(pending.Target))
+                continue;
+
+            if (!TryComp<MobStateComponent>(pending.Target, out var mobState))
+                continue;
+
+            if (mobState.CurrentState <= pending.OldState ||
+                mobState.CurrentState is not (MobState.Critical or MobState.Dead))
+                continue;
+
+            RaiseLocalEvent(pending.User,
+                new PctTrainingKnockoutEvent(
+                    pending.User,
+                    pending.Target,
+                    pending.Direction,
+                    pending.ThrowDistance,
+                    pending.ThrowSpeed));
+        }
+    }
+
     private void OnAttackAttempt(Entity<PctTrainingComponent> ent, ref AttackAttemptEvent args)
     {
-        if (IsUnarmedCombatSkillBlocked(ent.Owner))
+        if (_unarmedCombat.IsUnarmedCombatSkillBlocked(ent.Owner))
         {
             ClearPctState(ent);
             return;
@@ -47,7 +101,7 @@ public sealed class PctTrainingSystem : EntitySystem
 
     private void OnGetUserMeleeDamage(Entity<PctTrainingComponent> ent, ref GetUserMeleeDamageEvent args)
     {
-        if (IsUnarmedCombatSkillBlocked(ent.Owner))
+        if (_unarmedCombat.IsUnarmedCombatSkillBlocked(ent.Owner))
         {
             ClearPctState(ent);
             return;
@@ -63,7 +117,7 @@ public sealed class PctTrainingSystem : EntitySystem
 
     private void OnGetMeleeAttackRate(Entity<PctTrainingComponent> ent, ref GetMeleeAttackRateEvent args)
     {
-        if (IsUnarmedCombatSkillBlocked(ent.Owner))
+        if (_unarmedCombat.IsUnarmedCombatSkillBlocked(ent.Owner))
         {
             ClearPctState(ent);
             return;
@@ -77,7 +131,7 @@ public sealed class PctTrainingSystem : EntitySystem
 
     private void OnMeleeHit(Entity<PctTrainingComponent> ent, ref MeleeHitEvent args)
     {
-        if (IsUnarmedCombatSkillBlocked(ent.Owner))
+        if (_unarmedCombat.IsUnarmedCombatSkillBlocked(ent.Owner))
         {
             ClearPctState(ent);
             return;
@@ -88,8 +142,16 @@ public sealed class PctTrainingSystem : EntitySystem
 
         if (IsCleanMobHit(args))
         {
+            QueueKnockoutChecks(ent, args);
+            var parried = TryTriggerParry(ent, args);
+
             ent.Comp.Combo = Math.Min(ent.Comp.MaxCombo, ent.Comp.Combo + 1);
             Dirty(ent);
+
+            if (parried)
+                return;
+
+            RecordRecentHit(ent.Owner, args);
             return;
         }
 
@@ -106,6 +168,62 @@ public sealed class PctTrainingSystem : EntitySystem
             cooldown: (_timing.CurTime, ent.Comp.BlockedUntil),
             autoRemove: true);
         Dirty(ent);
+    }
+
+    private bool TryTriggerParry(Entity<PctTrainingComponent> ent, MeleeHitEvent args)
+    {
+        var parried = false;
+
+        foreach (var target in args.HitEntities)
+        {
+            if (!TryComp<PctTrainingComponent>(target, out var targetPct) ||
+                _unarmedCombat.IsUnarmedCombatSkillBlocked(target))
+                continue;
+
+            if (!_recentHits.TryGetValue(target, out var recent) ||
+                recent.Target != ent.Owner ||
+                _timing.CurTime - recent.Time > ent.Comp.ParryWindow)
+                continue;
+
+            targetPct.Combo = Math.Min(targetPct.MaxCombo, targetPct.Combo + 1);
+            Dirty(target, targetPct);
+            parried = true;
+        }
+
+        if (!parried)
+            return false;
+
+        _audio.PlayPredicted(ent.Comp.ParrySound, ent.Owner, ent.Owner);
+        return true;
+    }
+
+    private void RecordRecentHit(EntityUid user, MeleeHitEvent args)
+    {
+        if (args.HitEntities.Count != 1)
+            return;
+
+        _recentHits[user] = new RecentPctHit(args.HitEntities[0], _timing.CurTime);
+    }
+
+    private void QueueKnockoutChecks(Entity<PctTrainingComponent> ent, MeleeHitEvent args)
+    {
+        if (!_net.IsServer)
+            return;
+
+        foreach (var target in args.HitEntities)
+        {
+            if (!TryComp<MobStateComponent>(target, out var mobState))
+                continue;
+
+            var direction = GetThrowDirection(ent.Owner, target);
+            _pendingKnockouts.Add(new PendingPctKnockout(
+                ent.Owner,
+                target,
+                mobState.CurrentState,
+                direction,
+                ent.Comp.KnockoutThrowDistance,
+                ent.Comp.KnockoutThrowSpeed));
+        }
     }
 
     private void ClearPctState(Entity<PctTrainingComponent> ent)
@@ -126,6 +244,15 @@ public sealed class PctTrainingSystem : EntitySystem
         Dirty(ent);
     }
 
+    private Vector2 GetThrowDirection(EntityUid user, EntityUid target)
+    {
+        var userPos = _transform.GetMapCoordinates(user).Position;
+        var targetPos = _transform.GetMapCoordinates(target).Position;
+        var direction = targetPos - userPos;
+
+        return direction == Vector2.Zero ? Vector2.UnitX : direction.Normalized();
+    }
+
     private bool IsCleanMobHit(MeleeHitEvent args)
     {
         if (args.HitEntities.Count == 0)
@@ -140,19 +267,27 @@ public sealed class PctTrainingSystem : EntitySystem
         return true;
     }
 
-    public bool IsUnarmedCombatSkillBlocked(EntityUid user)
-    {
-        if (HasComp<MartialArtsKnowledgeComponent>(user) ||
-            HasComponentByName(user, "KravMaga"))
-            return true;
+    private readonly record struct RecentPctHit(EntityUid Target, TimeSpan Time);
 
-        return _inventory.TryGetSlotEntity(user, "gloves", out var gloves) &&
-               HasComp<UnarmedCombatSkillBlockerComponent>(gloves);
-    }
+    private readonly record struct PendingPctKnockout(
+        EntityUid User,
+        EntityUid Target,
+        MobState OldState,
+        Vector2 Direction,
+        float ThrowDistance,
+        float ThrowSpeed);
+}
 
-    private bool HasComponentByName(EntityUid user, string componentName)
-    {
-        return EntityManager.ComponentFactory.TryGetRegistration(componentName, out var registration) &&
-               EntityManager.HasComponent(user, registration.Type);
-    }
+public sealed class PctTrainingKnockoutEvent(
+    EntityUid user,
+    EntityUid target,
+    Vector2 direction,
+    float throwDistance,
+    float throwSpeed) : EntityEventArgs
+{
+    public readonly EntityUid User = user;
+    public readonly EntityUid Target = target;
+    public readonly Vector2 Direction = direction;
+    public readonly float ThrowDistance = throwDistance;
+    public readonly float ThrowSpeed = throwSpeed;
 }

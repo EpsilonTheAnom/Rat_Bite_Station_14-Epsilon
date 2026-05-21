@@ -12,6 +12,13 @@ trait-pct-training-desc =
     Consecutive clean hits against mobs make your punches faster, but missing or hitting objects leaves you unable to punch for 2 seconds.
     This training is incompatible with martial arts knowledge.
 
+trait-paci-fist-name = Paci-fist
+trait-paci-fist-desc =
+    A pacifist martial art designed to subdue with range control.
+    Bare punches deal stamina damage and slightly pull opponents closer.
+    Harm-grabbing stamina-crit opponents immediately applies a chokehold.
+    Requires Pacifist and is incompatible with other martial arts.
+
 trait-marathoner-name = Marathoner
 trait-marathoner-desc =
     You gain 50 stamina, run faster, and recover from prone positions slightly faster.

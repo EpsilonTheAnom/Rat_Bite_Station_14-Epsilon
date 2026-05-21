@@ -6,6 +6,7 @@
 // SPDX-FileCopyrightText: 2023 Visne <39844191+Visne@users.noreply.github.com>
 // SPDX-FileCopyrightText: 2023 Vordenburg <114301317+Vordenburg@users.noreply.github.com>
 // SPDX-FileCopyrightText: 2024 AJCM <AJCM@tutanota.com>
+// SPDX-FileCopyrightText: 2026 Sprinkle <40203084+lnn0q@users.noreply.github.com>
 // SPDX-FileCopyrightText: 2024 Aiden <aiden@djkraz.com>
 // SPDX-FileCopyrightText: 2024 Aidenkrz <aiden@djkraz.com>
 // SPDX-FileCopyrightText: 2024 Alex Evgrashin <aevgrashin@yandex.ru>
@@ -59,11 +60,14 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 using System.Diagnostics.CodeAnalysis;
+using Content.Shared._BRatbite.Traits;
 using Content.Shared.Actions;
 using Content.Shared.Alert;
 using Content.Goobstation.Maths.FixedPoint;
 using Content.Shared.IdentityManagement;
+using Content.Shared.Inventory;
 using Content.Shared.Interaction.Events;
+using Content.Shared.Mobs.Components;
 using Content.Shared.Popups;
 using Content.Shared.Throwing;
 using Content.Shared.Weapons.Ranged.Events;
@@ -78,6 +82,8 @@ public sealed class PacificationSystem : EntitySystem
     [Dependency] private readonly SharedCombatModeSystem _combatSystem = default!;
     [Dependency] private readonly SharedPopupSystem _popup = default!;
     [Dependency] private readonly IGameTiming _timing = default!;
+    [Dependency] private readonly InventorySystem _inventory = default!;
+    [Dependency] private readonly UnarmedCombatSkillSystem _unarmedCombat = default!;
 
     public override void Initialize()
     {
@@ -155,11 +161,29 @@ public sealed class PacificationSystem : EntitySystem
         if (args.Weapon != null && args.Weapon.Value.Comp.Damage.GetTotal() == FixedPoint2.Zero)
             return;
 
+        if (HasComp<PaciFistComponent>(uid) &&
+            IsBarehandWeapon(uid, args.Weapon?.Owner) &&
+            HasComp<MobStateComponent>(args.Target) &&
+            !_unarmedCombat.IsUnarmedCombatSkillBlocked(uid))
+            return;
+
         if (PacifiedCanAttack(uid, args.Target.Value, out var reason))
             return;
 
         ShowPopup((uid, component), args.Target.Value, reason);
         args.Cancel();
+    }
+
+    private bool IsBarehandWeapon(EntityUid user, EntityUid? weapon)
+    {
+        if (weapon == null)
+            return false;
+
+        if (weapon.Value == user)
+            return true;
+
+        return _inventory.TryGetSlotEntity(user, "gloves", out var gloves) &&
+               gloves == weapon.Value;
     }
 
     private void OnStartup(EntityUid uid, PacifiedComponent component, ComponentStartup args)

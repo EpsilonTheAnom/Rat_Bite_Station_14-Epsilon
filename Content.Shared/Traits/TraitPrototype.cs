@@ -11,6 +11,7 @@
 // SPDX-FileCopyrightText: 2024 Ed <96445749+TheShuEd@users.noreply.github.com>
 // SPDX-FileCopyrightText: 2025 Aiden <28298836+Aidenkrz@users.noreply.github.com>
 // SPDX-FileCopyrightText: 2025 Monolith Station contributors
+// SPDX-FileCopyrightText: 2026 Sprinkle <40203084+lnn0q@users.noreply.github.com>
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
@@ -83,6 +84,12 @@ public sealed partial class TraitPrototype : IPrototype
     /// </summary>
     [DataField]
     public HashSet<ProtoId<TraitPrototype>> MutuallyExclusiveTraits = new();
+
+    /// <summary>
+    /// BRatbite: Traits that must already be selected before this trait can be selected.
+    /// </summary>
+    [DataField]
+    public HashSet<ProtoId<TraitPrototype>> RequiredTraits = new();
 
     /// <summary>
     /// Monolith: Species that cannot select this trait.

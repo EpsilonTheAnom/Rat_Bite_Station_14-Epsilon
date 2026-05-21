@@ -117,6 +117,7 @@
 // SPDX-FileCopyrightText: 2025 username <113782077+whateverusername0@users.noreply.github.com>
 // SPDX-FileCopyrightText: 2025 vanx <61917534+Vaaankas@users.noreply.github.com>
 // SPDX-FileCopyrightText: 2025 whateverusername0 <whateveremail>
+// SPDX-FileCopyrightText: 2026 Sprinkle <40203084+lnn0q@users.noreply.github.com>
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
@@ -126,6 +127,7 @@ using System.Numerics;
 using Content.Goobstation.Common.CCVar;
 using Content.Goobstation.Common.MartialArts;
 using Content.Goobstation.Common.Weapons; // Goobstation - Martial Arts
+using Content.Shared._BRatbite.Traits;
 using Content.Shared._EinsteinEngines.Contests;
 using Content.Shared.ActionBlocker;
 using Content.Shared.Actions.Events;
@@ -139,6 +141,7 @@ using Content.Shared.Database;
 using Content.Goobstation.Maths.FixedPoint;
 using Content.Shared._Shitmed.Targeting;
 using Content.Shared.Coordinates;
+using Content.Shared.Effects;
 using Content.Shared.Hands;
 using Content.Shared.Hands.Components;
 using Content.Shared.Hands.EntitySystems;
@@ -148,6 +151,7 @@ using Content.Shared.Inventory;
 using Content.Shared.Inventory.VirtualItem;
 using Content.Shared.Item;
 using Content.Shared.Item.ItemToggle.Components;
+using Content.Shared.Mobs.Components;
 using Content.Shared.Mobs.Systems;
 using Content.Shared.Physics;
 using Content.Shared.Popups;
@@ -200,6 +204,8 @@ public abstract class SharedMeleeWeaponSystem : EntitySystem
     [Dependency] private   readonly INetConfigurationManager _config = default!;
     [Dependency] private   readonly SharedStaminaSystem _stamina = default!;
     [Dependency] private   readonly TagSystem _tag = default!;
+    [Dependency] private   readonly UnarmedCombatSkillSystem _unarmedCombat = default!;
+    [Dependency] private   readonly SharedColorFlashEffectSystem _color = default!;
 
     //Goob - Shove
     private float _shoveRange;
@@ -731,9 +737,18 @@ public abstract class SharedMeleeWeaponSystem : EntitySystem
         var hitEvent = new MeleeHitEvent(new List<EntityUid> { target.Value }, user, meleeUid, damage, null, GetCoordinates(ev.Coordinates)); // Goob edit
         RaiseLocalEvent(meleeUid, hitEvent, true); // Goob station - broadcast
 
+        TryApplyPaciFistHit(user, meleeUid, hitEvent);
 
         if (hitEvent.Handled)
+        {
+            if (hitEvent.PlayMissFeedback)
+            {
+                _meleeSound.PlaySwingSound(user, meleeUid, component);
+                DoLungeAnimation(user, weapon, component.Angle, TransformSystem.ToMapCoordinates(ev.Coordinates), rangeEv.Range, component.MissAnimation, component.AnimationRotation, component.FlipAnimation);
+            }
+
             return;
+        }
 
         var targets = new List<EntityUid>(1)
         {
@@ -891,6 +906,8 @@ public abstract class SharedMeleeWeaponSystem : EntitySystem
         // Raise event before doing damage so we can cancel damage if the event is handled
         var hitEvent = new MeleeHitEvent(targets, user, meleeUid, damage, direction, GetCoordinates(ev.Coordinates)); // Goob edit
         RaiseLocalEvent(meleeUid, hitEvent, true); // Goob station - broadcast
+
+        TryApplyPaciFistHit(user, meleeUid, hitEvent);
 
         if (hitEvent.Handled)
             return true;
@@ -1086,11 +1103,16 @@ public abstract class SharedMeleeWeaponSystem : EntitySystem
     }
 
     // Goob - Shove Rework shove stamina damage based on mass
-    private float CalculateShoveStaminaDamage(EntityUid disarmer, EntityUid disarmed)
+    private float CalculateShoveStaminaDamage(EntityUid disarmer, EntityUid disarmed, EntityUid meleeUid)
     {
         var baseStaminaDamage = TryComp<ShovingComponent>(disarmer, out var shoving) ? shoving.StaminaDamage : ShovingComponent.DefaultStaminaDamage;
 
-        return baseStaminaDamage * _contests.MassContest(disarmer, disarmed);
+        var staminaDamage = baseStaminaDamage * _contests.MassContest(disarmer, disarmed);
+
+        if (TryGetBarehandPaciFist(disarmer, meleeUid, out var paciFist))
+            staminaDamage *= paciFist.ShovePowerMultiplier;
+
+        return staminaDamage;
     }
 
     protected virtual bool DoDisarm(EntityUid user,
@@ -1131,7 +1153,7 @@ public abstract class SharedMeleeWeaponSystem : EntitySystem
         RaiseLocalEvent(user, comboEv);
         // Goobstation end
 
-        PhysicalShove(user, target);
+        PhysicalShove(user, target, meleeUid);
         Interaction.DoContactInteraction(user, target);
 
         if (MobState.IsIncapacitated(target))
@@ -1180,7 +1202,7 @@ public abstract class SharedMeleeWeaponSystem : EntitySystem
         AdminLogger.Add(LogType.DisarmedAction,
             $"{ToPrettyString(user):user} used disarm on {ToPrettyString(target):target}");
 
-        var staminaDamage = CalculateShoveStaminaDamage(user, target);
+        var staminaDamage = CalculateShoveStaminaDamage(user, target, meleeUid);
 
         var eventArgs = new DisarmedEvent(target,user,chance)
         {
@@ -1243,9 +1265,12 @@ public abstract class SharedMeleeWeaponSystem : EntitySystem
         DoLunge(user, weapon, angle, localPos, animation, spriteRotation, flipAnimation);
     }
 
-    private void PhysicalShove(EntityUid user, EntityUid target)
+    private void PhysicalShove(EntityUid user, EntityUid target, EntityUid meleeUid)
     {
         var force = _shoveRange * _contests.MassContest(user, target, rangeFactor: _shoveMass);
+
+        if (TryGetBarehandPaciFist(user, meleeUid, out var paciFist))
+            force *= paciFist.ShovePowerMultiplier;
 
         var userPos = TransformSystem.ToMapCoordinates(user.ToCoordinates()).Position;
         var targetPos = TransformSystem.ToMapCoordinates(target.ToCoordinates()).Position;
@@ -1254,6 +1279,70 @@ public abstract class SharedMeleeWeaponSystem : EntitySystem
         var animated = HasComp<ItemComponent>(target);
 
         _throwing.TryThrow(target, pushVector, force * _shoveSpeed, animated: animated);
+    }
+
+    private bool TryGetBarehandPaciFist(EntityUid user, EntityUid meleeUid, [NotNullWhen(true)] out PaciFistComponent? paciFist)
+    {
+        paciFist = null;
+
+        if (!IsBarehandWeapon(user, meleeUid) ||
+            _unarmedCombat.IsUnarmedCombatSkillBlocked(user) ||
+            !TryComp(user, out paciFist))
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    private bool IsBarehandWeapon(EntityUid user, EntityUid meleeUid)
+    {
+        if (meleeUid == user)
+            return true;
+
+        return _inventory.TryGetSlotEntity(user, "gloves", out var gloves) &&
+               gloves == meleeUid;
+    }
+
+    private void TryApplyPaciFistHit(EntityUid user, EntityUid meleeUid, MeleeHitEvent hitEvent)
+    {
+        if (hitEvent.Handled ||
+            !hitEvent.IsHit ||
+            !TryGetBarehandPaciFist(user, meleeUid, out var paciFist))
+            return;
+
+        var handled = false;
+        foreach (var target in hitEvent.HitEntities)
+        {
+            if (!HasComp<MobStateComponent>(target))
+                continue;
+
+            if (TryComp<StaminaComponent>(target, out var stamina))
+                _stamina.TakeStaminaDamage(target, paciFist.StaminaDamage, stamina, source: user, visual: true, applyResistances: true);
+
+            _color.RaiseEffect(Color.Aqua, new List<EntityUid> { target }, Filter.Pvs(target, entityManager: EntityManager));
+            PhysicalPull(user, target, paciFist);
+            handled = true;
+        }
+
+        if (!handled)
+            return;
+
+        hitEvent.PlayMissFeedback = true;
+        hitEvent.Handled = true;
+    }
+
+    private void PhysicalPull(EntityUid user, EntityUid target, PaciFistComponent paciFist)
+    {
+        var force = _shoveRange * _contests.MassContest(user, target, rangeFactor: _shoveMass) * paciFist.ShovePowerMultiplier;
+
+        var userPos = TransformSystem.ToMapCoordinates(user.ToCoordinates()).Position;
+        var targetPos = TransformSystem.ToMapCoordinates(target.ToCoordinates()).Position;
+        var pullVector = (userPos - targetPos).Normalized() * force;
+
+        var animated = HasComp<ItemComponent>(target);
+
+        _throwing.TryThrow(target, pullVector, force * _shoveSpeed, animated: animated);
     }
 
     public abstract void DoLunge(EntityUid user, EntityUid weapon, Angle angle, Vector2 localPos, string? animation, Angle spriteRotation, bool flipAnimation, bool predicted = true);

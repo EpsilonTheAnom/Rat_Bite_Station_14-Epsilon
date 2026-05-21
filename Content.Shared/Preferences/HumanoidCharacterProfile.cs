@@ -41,6 +41,7 @@
 // SPDX-FileCopyrightText: 2024 dffdff2423 <dffdff2423@gmail.com>
 // SPDX-FileCopyrightText: 2024 metalgearsloth <comedian_vs_clown@hotmail.com>
 // SPDX-FileCopyrightText: 2025 Aiden <28298836+Aidenkrz@users.noreply.github.com>
+// SPDX-FileCopyrightText: 2026 Sprinkle <40203084+lnn0q@users.noreply.github.com>
 // SPDX-FileCopyrightText: 2025 BeBright <98597725+be1bright@users.noreply.github.com>
 // SPDX-FileCopyrightText: 2025 BeBright <98597725+bebr3ght@users.noreply.github.com>
 // SPDX-FileCopyrightText: 2025 GoobBot <uristmchands@proton.me>
@@ -515,6 +516,9 @@ namespace Content.Shared.Preferences
 
             var list = new HashSet<ProtoId<TraitPrototype>>(_traitPreferences) { traitId };
 
+            if (!traitProto.RequiredTraits.IsSubsetOf(list))
+                return new(this);
+
             if (traitCategory == null || traitCategory.MaxTraitPoints < 0)
             {
                 return new(this)
@@ -785,6 +789,9 @@ namespace Content.Shared.Preferences
             foreach (var trait in traitList)
             {
                 if (!protoManager.TryIndex(trait, out var traitProto))
+                    continue;
+
+                if (!traitProto.RequiredTraits.IsSubsetOf(result.ToHashSet()))
                     continue;
 
                 // Always valid.

@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: 2020 20kdc <asdd2808@gmail.com>
+// SPDX-FileCopyrightText: 2026 Sprinkle <40203084+lnn0q@users.noreply.github.com>
 // SPDX-FileCopyrightText: 2020 DamianX <DamianX@users.noreply.github.com>
 // SPDX-FileCopyrightText: 2020 Exp <theexp111@gmail.com>
 // SPDX-FileCopyrightText: 2020 ike709 <ike709@users.noreply.github.com>
@@ -833,6 +834,19 @@ namespace Content.Client.Lobby.UI
                             tooltipParts.Add($"You must not have one of these skills: {string.Join(", ", names)}");
                     }
 
+                    if (trait.RequiredTraits.Count > 0)
+                    {
+                        var names = new List<string>();
+                        foreach (var requiredId in trait.RequiredTraits)
+                        {
+                            if (_prototypeManager.TryIndex(requiredId, out var requiredProto))
+                                names.Add($"[color=#ADD8E6]{Loc.GetString(requiredProto.Name)}[/color]");
+                        }
+
+                        if (names.Count > 0)
+                            tooltipParts.Add($"You must have: {string.Join(", ", names)}");
+                    }
+
                     var speciesBlacklist = trait.SpeciesBlacklist.Concat(trait.ExcludedSpecies).Distinct().ToList();
                     if (speciesBlacklist.Count > 0)
                     {
@@ -1067,6 +1081,11 @@ namespace Content.Client.Lobby.UI
                 }
 
                 var hide = currentSpecies != null && IsTraitExcludedForSpecies(thisProto, currentSpecies.Value);
+
+                if (!hide)
+                {
+                    hide = !thisProto.RequiredTraits.IsSubsetOf(selected);
+                }
 
                 if (!hide)
                 {

@@ -34,6 +34,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 | Neurogenesis Imperfecta | The brain is incompatible with neural connectors and foreign bodies. | Blocks cloning, prevents MMI use, and makes brain transplants fail outside the original body. |
 | Osteogenesis Imperfecta | Bones break very easily. | Greatly lowers the Critical threshold. |
 | Parkour Training | The character is trained to move through obstacles. | Faster climbing, shorter slipping stun, and reduced contact slowdown. |
+| Paci-fist | A pacifist martial art focused on subduing opponents through range control. | Requires Pacifist. Bare punches deal stamina damage and pull opponents slightly closer; harm-grabbing stamina-crit opponents immediately applies a chokehold. Disabled by the same martial arts and glove blockers as PCT. |
 | PCT Training | Precise Combat Techniques improve unarmed attacks. | Adds 5 unarmed Blunt damage, rewards clean hit combos with faster punches, and locks punching for 2 seconds after misses or hitting objects. |
 | Platelet Factories | Bio-tailored organs improve long-term survivability. | Slowly repairs Brute and Burn damage while alive. |
 | Poor Vision | The character struggles to see far away. | Applies partial permanent blindness and starts with prescription glasses. |
