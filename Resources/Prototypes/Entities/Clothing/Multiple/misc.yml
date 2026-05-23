@@ -26,6 +26,11 @@
       neck:
       - state: on-equipped-NECK
   - type: Appearance
+  - type: HeadphoneMusic
+  - type: UserInterface
+    interfaces:
+      enum.HeadphoneMusicUiKey.Key:
+        type: HeadphoneMusicBoundUserInterface
   - type: GenericVisualizer
     visuals:
       enum.ToggleableVisuals.Enabled:
