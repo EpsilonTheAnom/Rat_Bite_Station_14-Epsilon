@@ -394,7 +394,10 @@ namespace Content.Client.Paper.UI
             {
                 StampDisplay.AddStamp(new StampWidget { StampInfo = stamper });
             }
+
+            // Ratbite
             DrawWindow.Strokes = state.Strokes;
+            DrawingButtons.Visible = isEditing && DrawWindow.Drawing;
         }
 
         /// <summary>
@@ -443,6 +446,7 @@ namespace Content.Client.Paper.UI
             SaveButton.Disabled = true;
             // Ratbite: Stop drawing
             DrawWindow.Drawing = false;
+            UpdateDrawingState();
             OnSaved?.Invoke(Rope.Collapse(Input.TextRope), DrawWindow.Strokes);
         }
 
@@ -466,20 +470,33 @@ namespace Content.Client.Paper.UI
             }
         }
 
-        // Ratbite: toggle drawing mode
-        private void OnDrawToggle()
+        // Ratbite
+        private void UpdateDrawingState()
         {
-            DrawWindow.Drawing = !DrawWindow.Drawing;
             DrawButton.Pressed = DrawWindow.Drawing;
+            DrawingButtons.Visible = DrawWindow.Drawing;
 
             if (DrawWindow.Drawing)
             {
+                WrittenTextLabel.SetMessage(Rope.Collapse(Input.TextRope), _allowedTags, DefaultTextColor);
                 Input.MouseFilter = MouseFilterMode.Ignore;
+                WrittenTextLabel.Visible = true;
+                InputContainer.Visible = false;
             }
             else
             {
                 Input.MouseFilter = MouseFilterMode.Stop;
+                WrittenTextLabel.Visible = false;
+                InputContainer.Visible = true;
             }
+            InputContainer.Visible = !DrawWindow.Drawing;
+        }
+
+        // Ratbite: toggle drawing mode
+        private void OnDrawToggle()
+        {
+            DrawWindow.Drawing = !DrawWindow.Drawing;
+            UpdateDrawingState();
         }
 
         private void OnUndoDrawing()
