@@ -10,6 +10,8 @@
   cost: 2
   components:
   - type: PrybarProsthetics
+    prySpeedModifier: 1
+    pryPowered: false
 
 - type: trait
   id: Vigor
@@ -114,8 +116,9 @@
   - type: Thieving
     stealthy: false
     toggleSubtle: true
-    timeMultiplier: 0.5
+    timeMultiplier: 0.6
     identifyHidden: true
+    traitGranted: true
 
 - type: trait
   id: BionicLegs
@@ -125,6 +128,8 @@
   cost: 8
   components:
   - type: BionicLegs
+    walkSpeed: 2.1875
+    sprintSpeed: 3.6225
 
 - type: trait
   id: OsteogenesisImperfecta
@@ -342,6 +347,8 @@
   description: trait-temperature-tolerance-desc
   category: Physical
   cost: 1
+  speciesBlacklist:
+  - Resomi
   components:
   - type: TemperatureProtection
     coolingCoefficient: 0.6
@@ -410,6 +417,7 @@
   - SlimePerson
   - Felinid
   - Tajaran
+  - Scurret
   blacklist:
     components:
     - BorgChassis
