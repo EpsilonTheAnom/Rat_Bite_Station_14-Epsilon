@@ -124,11 +124,13 @@
     Blood:
       amount: 6
     Vomit:
-      amount: 39
+      amount: 19
+    Cognizine:
+      amount: 20
     Vestine:
       amount: 1
       catalyst: true
-  products: # should work, might not, didn't test it, comma, comma, comma, comma. Added catalyst thingy buhbuhbuh.
+  products: # should work, might not, didn't test it, comma, comma, comma, comma. Added catalyst thingy buhbuhbuh. Added cognizine to the recipe, 4 brains worth.
     Romerol: 1
 
 
