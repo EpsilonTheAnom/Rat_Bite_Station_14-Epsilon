@@ -618,7 +618,7 @@
       - !type:HealthChange
         damage:
           types:
-            Radiation: -1.5 #Ratbite - add a recipe for romerol, other minor chem changes, original was -1, changed to -1.5 to be half of ariths healing
+            Radiation: -1.5 #Ratbite - original was -1
       - !type:ChemVomit
         conditions:
         - !type:OrganType # Goobstation - Yowie
