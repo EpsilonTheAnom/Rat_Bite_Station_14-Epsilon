@@ -699,7 +699,7 @@
   color: "#bf3d19"
   metabolisms:
     Medicine:
-      metabolismRate: 0.15 #Ratbite - add a recipe for romerol, other minor chem changes, original was 0.5, changed to 0.15
+      metabolismRate: 0.15 #Ratbite - original was 0.5
       effects:
       - !type:HealthChange
         damage:
