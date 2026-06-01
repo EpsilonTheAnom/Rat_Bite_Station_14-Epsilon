@@ -331,7 +331,7 @@
             max: 213.0
             scale: 1.6
           damage:
-            groups: # Goobstation - Cryo rebalance .Ratbite - now heals -4 instead of -3 for all
+            groups: # Ratbite - Changed from -3 for all
               Airloss: -4
               Brute: -4
               Burn: -4
