@@ -45,6 +45,10 @@ public sealed class TemporaryCuffsSystem : EntitySystem
             BreakOnDamage = false,
             NeedHand = false,
             RequireCanInteract = false,
+            Hidden = false,
+            BlockDuplicate = false,
+            CancelDuplicate = false,
+            DuplicateCondition = DuplicateConditions.SameEvent,
         };
 
         _doAfter.TryStartDoAfter(doAfter, out ent.Comp.BreakoutDoAfter);
