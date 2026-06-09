@@ -26,6 +26,7 @@
   - type: AutoImplant
     implants:
     - MindShieldImplant
+  - type: CombatTrained
 
 - type: entity
   parent: SecurityReinforcement
